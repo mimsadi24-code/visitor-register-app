@@ -1,0 +1,33 @@
+name: Unpack Visitor Register
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract project
+        run: |
+          unzip -q visitor-register-apk-package.zip -d /tmp/project
+          if [ -d /tmp/project/apk_pkg ]; then
+            cp -a /tmp/project/apk_pkg/. .
+          else
+            cp -a /tmp/project/. .
+          fi
+          rm -f visitor-register-apk-package.zip
+
+      - name: Commit project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Visitor Register project" || exit 0
+          git push
