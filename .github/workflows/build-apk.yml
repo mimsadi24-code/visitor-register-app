@@ -37,16 +37,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Install Capacitor CLI
+        run: pnpm add -D @capacitor/cli @capacitor/core @capacitor/android
+
       - name: Build web app
         run: pnpm --dir artifacts/visitor-register build
 
       - name: Add Android platform
         working-directory: artifacts/visitor-register
-        run: npx cap add android
+        run: pnpm exec cap add android
 
       - name: Sync Capacitor
         working-directory: artifacts/visitor-register
-        run: npx cap sync android
+        run: pnpm exec cap sync android
 
       - name: Build APK
         working-directory: artifacts/visitor-register/android
