@@ -18,25 +18,43 @@ jobs:
         run: |
           set -e
 
+          ZIP_FILE="$(find . -maxdepth 1 -type f -name 'visitor-register-fixed*.zip' | head -n 1)"
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No visitor-register-fixed*.zip found"
+            exit 1
+          fi
+
+          echo "Using ZIP: $ZIP_FILE"
+
           rm -rf /tmp/project
           mkdir -p /tmp/project
 
-          unzip -q visitor-register-fixed-v2.zip -d /tmp/project
+          unzip -q "$ZIP_FILE" -d /tmp/project
 
-          if [ -d /tmp/project/apk_pkg ]; then
-            rsync -a --exclude='.github/' /tmp/project/apk_pkg/ ./
+          if [ -d "/tmp/project/visitor-register-main" ]; then
+            PROJECT_DIR="/tmp/project/visitor-register-main"
           else
-            rsync -a --exclude='.github/' /tmp/project/ ./
+            PROJECT_DIR="/tmp/project"
           fi
 
-          rm -f visitor-register-fixed-v2.zip
+          echo "Project directory: $PROJECT_DIR"
+
+          # Remove the old nested project folder
+          rm -rf visitor-register-main
+
+          # Copy the actual project files to repository root
+          rsync -a \
+            --exclude='.github/' \
+            "$PROJECT_DIR"/ ./
 
       - name: Commit project
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@github.com"
 
           git add -A
-          git commit -m "Add Visitor Register project" || exit 0
-          git push
+
+          git commit -m "Fix Visitor Register project structure" || exit 0
+
           git push
