@@ -16,18 +16,25 @@ jobs:
 
       - name: Extract project
         run: |
+          set -e
+          rm -rf /tmp/project
+          mkdir -p /tmp/project
+
           unzip -q visitor-register-apk-package.zip -d /tmp/project
+
           if [ -d /tmp/project/apk_pkg ]; then
-            cp -a /tmp/project/apk_pkg/. .
+            rsync -a --exclude='.github/' /tmp/project/apk_pkg/ ./
           else
-            cp -a /tmp/project/. .
+            rsync -a --exclude='.github/' /tmp/project/ ./
           fi
+
           rm -f visitor-register-apk-package.zip
 
       - name: Commit project
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add -A
           git commit -m "Add Visitor Register project" || exit 0
           git push
