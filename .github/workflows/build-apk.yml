@@ -37,9 +37,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Install Capacitor CLI
-        run: pnpm add -D @capacitor/cli @capacitor/core @capacitor/android
-
       - name: Build web app
         run: pnpm --dir artifacts/visitor-register build
 
