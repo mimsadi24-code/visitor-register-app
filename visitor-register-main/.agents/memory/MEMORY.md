@@ -1,1 +1,0 @@
-- [OpenAPI integer compatibility](zod-openapi-integer-compat.md) — generated `zod.int()` may not match the workspace's pinned Zod runtime.

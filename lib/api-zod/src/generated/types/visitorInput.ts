@@ -7,12 +7,12 @@
  */
 
 export interface VisitorInput {
-  /** @minLength 1 @maxLength 120 */
+  /** @minLength 1 */
   name: string;
-  /** @minLength 1 @maxLength 40 */
+  /** @minLength 1 */
   phone: string;
-  /** @minLength 1 @maxLength 120 */
+  /** @minLength 1 */
   personToMeet: string;
-  /** @minLength 1 @maxLength 500 */
+  /** @minLength 1 */
   purpose: string;
 }

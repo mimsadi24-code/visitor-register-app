@@ -38,7 +38,6 @@ paths:
           required: false
           schema:
             type: string
-            maxLength: 100
             default: ""
       responses:
         "200":
@@ -139,19 +138,15 @@ components:
         name:
           type: string
           minLength: 1
-          maxLength: 120
         phone:
           type: string
           minLength: 1
-          maxLength: 40
         personToMeet:
           type: string
           minLength: 1
-          maxLength: 120
         purpose:
           type: string
           minLength: 1
-          maxLength: 500
       required:
         - name
         - phone

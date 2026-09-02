@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Check, ClipboardList, Clock3, LogIn, Mail, Phone, RefreshCw, Search, ShieldCheck, Trash2, UserRound, Users, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
@@ -13,7 +13,6 @@ import {
   useHealthCheck,
   useListVisitors,
 } from '@workspace/api-client-react';
-import { addOfflineVisitor, deleteLocalVisitor, fetchVisitorsOfflineSafe, getLocalSummary, getLocalVisitors, saveLocalVisitors, syncOfflineData } from './offline';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -28,7 +27,7 @@ type RegisterForm = {
 };
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 15_000, refetchOnWindowFocus: true } },
+  defaultOptions: { queries: { staleTime: 15_000, retry: 1, retryDelay: 700, refetchOnWindowFocus: false } },
 });
 
 function formatDate(date: Date) {
@@ -68,7 +67,7 @@ function initials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?';
 }
 
-function Field({ label, name, placeholder, icon, register, error, type = 'text', maxLength }: {
+function Field({ label, name, placeholder, icon, register, error, type = 'text' }: {
   label: string;
   name: keyof RegisterForm;
   placeholder: string;
@@ -76,7 +75,6 @@ function Field({ label, name, placeholder, icon, register, error, type = 'text',
   register: ReturnType<typeof useForm<RegisterForm>>['register'];
   error?: string;
   type?: string;
-  maxLength?: number;
 }) {
   return (
     <div className="field-group">
@@ -88,7 +86,6 @@ function Field({ label, name, placeholder, icon, register, error, type = 'text',
           data-testid={`input-${name}`}
           className="input-control"
           type={type}
-          maxLength={maxLength}
           placeholder={placeholder}
           autoComplete="off"
           {...register(name, { required: `${label} is required` })}
@@ -104,8 +101,8 @@ function Navigation() {
     <>
       <aside className="side-rail">
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '0 8px' }}>
-          <div className="brand-mark" aria-hidden="true"><LogIn size={19} strokeWidth={2.5} /></div>
-          <div><div className="brand-name">Harbor</div><div className="brand-caption">front desk</div></div>
+          <div className="brand-mark" aria-hidden="true"><img src="/logo.svg" alt="" /></div>
+          <div className="brand-name brand-name-wide">VISITOR REGISTER</div>
         </div>
         <div style={{ marginTop: 48 }}>
           <div className="brand-caption" style={{ padding: '0 12px', marginBottom: 10 }}>Workspace</div>
@@ -131,18 +128,16 @@ function Navigation() {
 function Header() {
   const [location] = useLocation();
   const health = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), refetchInterval: 60_000 } });
-  const [offline, setOffline] = useState(!navigator.onLine);
-  useEffect(() => { const on = () => setOffline(false); const off = () => setOffline(true); window.addEventListener('online', on); window.addEventListener('offline', off); return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); }; }, []);
-  const online = !offline && !health.isError && health.data?.status !== 'error';
+  const online = !health.isError && health.data?.status !== 'error';
   return (
     <header className="topbar">
       <div className="mobile-brand">
-        <div className="brand-mark" aria-hidden="true"><LogIn size={16} strokeWidth={2.5} /></div>
-        <div className="brand-name">Harbor</div>
+        <div className="brand-mark" aria-hidden="true"><img src="/logo.svg" alt="" /></div>
+        <div className="brand-name brand-name-wide">VISITOR REGISTER</div>
       </div>
       <div className="topbar-meta" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
         <span style={{ width: 6, height: 6, borderRadius: 99, background: online ? 'hsl(143 48% 48%)' : 'hsl(var(--destructive))' }} />
-        {online ? 'Connected to register' : 'Offline mode — saved on this device'}
+        {online ? 'Connected to register' : 'Connection issue'}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
         <div style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', borderRadius: 9, color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / .1)' }}><ShieldCheck size={16} /></div>
@@ -156,30 +151,19 @@ function Header() {
 function RegisterFormCard() {
   const queryClient = useQueryClient();
   const [successName, setSuccessName] = useState('');
-  const [savedOffline, setSavedOffline] = useState(false);
-  const successTimer = useRef<number | null>(null);
   const createVisitor = useCreateVisitor();
   const form = useForm<RegisterForm>({ defaultValues: { name: '', phone: '', personToMeet: '', purpose: '' } });
-  const finishLocal = (name: string, offline = false) => {
-    setSuccessName(name);
-    setSavedOffline(offline);
-    form.reset();
-    void queryClient.invalidateQueries({ queryKey: getListVisitorsQueryKey() });
-    void queryClient.invalidateQueries({ queryKey: getGetVisitorSummaryQueryKey() });
-    if (successTimer.current !== null) window.clearTimeout(successTimer.current);
-    successTimer.current = window.setTimeout(() => setSuccessName(''), 5000);
-  };
   const onSubmit = (values: RegisterForm) => {
-    if (!navigator.onLine) { addOfflineVisitor(values); finishLocal(values.name, true); return; }
     createVisitor.mutate({ data: values }, {
-      onSuccess: () => finishLocal(values.name),
-      onError: () => { addOfflineVisitor(values); finishLocal(values.name, true); },
+      onSuccess: () => {
+        setSuccessName(values.name);
+        form.reset();
+        void queryClient.invalidateQueries({ queryKey: getListVisitorsQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getGetVisitorSummaryQueryKey() });
+        window.setTimeout(() => setSuccessName(''), 5000);
+      },
     });
   };
-  useEffect(() => () => {
-    if (successTimer.current !== null) window.clearTimeout(successTimer.current);
-  }, []);
-
   const errorMessage = createVisitor.isError ? 'We couldn’t save that arrival. Check the details and try again.' : '';
   return (
     <section className="surface form-surface" aria-labelledby="register-heading">
@@ -188,28 +172,22 @@ function RegisterFormCard() {
         <div style={{ color: 'hsl(var(--primary))' }}><UserRound size={19} /></div>
       </div>
       <form className="form-body" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-        <Field label="Visitor name" name="name" placeholder="e.g. Samira Patel" maxLength={120} icon={<UserRound size={16} />} register={form.register} error={form.formState.errors.name?.message} />
-        <Field label="Phone number" name="phone" placeholder="e.g. 415 555 0148" maxLength={40} icon={<Phone size={16} />} register={form.register} error={form.formState.errors.phone?.message} type="tel" />
-        <Field label="Person to meet" name="personToMeet" placeholder="Who are they here to see?" maxLength={120} icon={<Users size={16} />} register={form.register} error={form.formState.errors.personToMeet?.message} />
-        <Field label="Purpose of visit" name="purpose" placeholder="e.g. Project review" maxLength={500} icon={<Mail size={16} />} register={form.register} error={form.formState.errors.purpose?.message} />
+        <Field label="Visitor name" name="name" placeholder="e.g. Samira Patel" icon={<UserRound size={16} />} register={form.register} error={form.formState.errors.name?.message} />
+        <Field label="Phone number" name="phone" placeholder="e.g. 415 555 0148" icon={<Phone size={16} />} register={form.register} error={form.formState.errors.phone?.message} type="tel" />
+        <Field label="Person to meet" name="personToMeet" placeholder="Who are they here to see?" icon={<Users size={16} />} register={form.register} error={form.formState.errors.personToMeet?.message} />
+        <Field label="Purpose of visit" name="purpose" placeholder="e.g. Project review" icon={<Mail size={16} />} register={form.register} error={form.formState.errors.purpose?.message} />
         <button className="submit-button" type="submit" disabled={createVisitor.isPending} data-testid="button-submit-visitor">
           {createVisitor.isPending ? <><RefreshCw size={16} className="animate-spin" /> Saving arrival</> : <><LogIn size={16} /> Check visitor in</>}
         </button>
         {errorMessage ? <div className="input-error" style={{ marginTop: 11 }} role="alert" data-testid="status-create-error">{errorMessage}</div> : null}
-        {successName ? <div className="success-note" role="status" data-testid="status-create-success"><Check size={16} /> {successName} {savedOffline ? 'is saved on this device and will sync when online.' : 'is checked in.'}</div> : null}
+        {successName ? <div className="success-note" role="status" data-testid="status-create-success"><Check size={16} /> {successName} is checked in.</div> : null}
       </form>
     </section>
   );
 }
 
 function SummaryBand() {
-  const summary = useQuery({ queryKey: getGetVisitorSummaryQueryKey(), queryFn: async () => {
-    try {
-      const response = await fetch('/api/visitors/summary');
-      if (!response.ok) throw new Error('summary unavailable');
-      return await response.json() as { total: number; today: number; latestCheckIn: string | null };
-    } catch { return getLocalSummary(); }
-  } });
+  const summary = useGetVisitorSummary({ query: { queryKey: getGetVisitorSummaryQueryKey() } });
   if (summary.isLoading) {
     return <div className="surface summary-band" data-testid="loading-summary"><div className="metric metric-main"><div className="skeleton-line" style={{ width: 60, background: 'hsl(var(--sidebar-accent))' }} /></div><div className="metric"><div className="skeleton-line" /></div><div className="metric"><div className="skeleton-line" /></div></div>;
   }
@@ -227,16 +205,22 @@ function SummaryBand() {
 
 function VisitorDetail({ visitor, onClose }: { visitor: VisitorRecord; onClose: () => void }) {
   useEffect(() => {
+    const stateKey = `visitor-detail-${visitor.id}`;
+    window.history.pushState({ visitorDetail: stateKey }, '');
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); }
     };
+    const handlePopState = () => onClose();
     document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('popstate', handlePopState);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('popstate', handlePopState);
       document.body.style.overflow = '';
+      if (window.history.state?.visitorDetail === stateKey) window.history.back();
     };
-  }, [onClose]);
+  }, [visitor.id, onClose]);
 
   return (
     <div
@@ -341,25 +325,11 @@ function VisitorHistory() {
   const queryClient = useQueryClient();
   const deleteVisitor = useDeleteVisitor();
   const params = useMemo(() => ({ search: search.trim() || undefined }), [search]);
-  const visitors = useQuery({ queryKey: getListVisitorsQueryKey(params), queryFn: () => fetchVisitorsOfflineSafe(params.search), staleTime: 5000 });
+  const visitors = useListVisitors(params, { query: { queryKey: getListVisitorsQueryKey(params) } });
   const confirmDelete = () => {
     if (!visitorToDelete) return;
-    if (visitorToDelete.id < 0 || !navigator.onLine) {
-      deleteLocalVisitor(visitorToDelete.id);
-      setVisitorToDelete(null);
-      void queryClient.invalidateQueries({ queryKey: getListVisitorsQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getGetVisitorSummaryQueryKey() });
-      return;
-    }
     deleteVisitor.mutate({ id: visitorToDelete.id }, {
       onSuccess: () => {
-        deleteLocalVisitor(visitorToDelete.id);
-        setVisitorToDelete(null);
-        void queryClient.invalidateQueries({ queryKey: getListVisitorsQueryKey() });
-        void queryClient.invalidateQueries({ queryKey: getGetVisitorSummaryQueryKey() });
-      },
-      onError: () => {
-        deleteLocalVisitor(visitorToDelete.id);
         setVisitorToDelete(null);
         void queryClient.invalidateQueries({ queryKey: getListVisitorsQueryKey() });
         void queryClient.invalidateQueries({ queryKey: getGetVisitorSummaryQueryKey() });
@@ -370,14 +340,14 @@ function VisitorHistory() {
     <>
       <section className="surface log-surface" id="visitor-history" aria-labelledby="history-heading">
       <div className="surface-header">
-        <div><h2 className="surface-title" id="history-heading">Visitor history</h2><p className="surface-kicker">{search ? `Results matching “${search}”` : 'The front desk, at a glance.'}</p></div>
+        <div><h2 className="surface-title" id="history-heading">Visitor history</h2><p className="surface-kicker">{search ? `Results matching “${search}”` : 'The visitor register, at a glance.'}</p></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'hsl(var(--muted-foreground))', fontSize: 11 }}><Clock3 size={14} /> Newest first</div>
       </div>
       <div className="log-toolbar">
         <div className="search-wrap">
           <Search className="input-icon" size={16} />
           <label className="sr-only" htmlFor="visitor-search">Search visitors</label>
-          <input id="visitor-search" className="input-control" type="search" maxLength={100} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, host, or purpose" data-testid="input-search-visitors" />
+          <input id="visitor-search" className="input-control" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, host, or purpose" data-testid="input-search-visitors" />
           {search ? <button className="clear-search" type="button" onClick={() => setSearch('')} aria-label="Clear search" data-testid="button-clear-search"><X size={15} /></button> : null}
         </div>
         <button className="refresh-button" type="button" onClick={() => void visitors.refetch()} aria-label="Refresh visitor history" data-testid="button-refresh-visitors"><RefreshCw size={15} className={visitors.isFetching ? 'animate-spin' : ''} /></button>
@@ -419,7 +389,7 @@ function Home() {
         <main className="content-wrap">
           <div className="welcome-row">
             <div><div className="eyebrow">Good morning, reception</div><h1 className="page-title" style={{ marginTop: 9 }}>Welcome them in.</h1><p className="page-subtitle" style={{ marginTop: 13 }}>A clear record of everyone who walks through the door.</p></div>
-            <div className="date-stamp"><strong>{formatDate(new Date())}</strong>Harbor office · Desk 01</div>
+            <div className="date-stamp"><strong>{formatDate(new Date())}</strong>VISITOR REGISTER · Desk 01</div>
           </div>
           <SummaryBand />
           <div className="dashboard-grid">
@@ -437,13 +407,6 @@ function Router() {
 }
 
 function App() {
-  useEffect(() => {
-    void syncOfflineData();
-    const onOnline = () => { void syncOfflineData().then(() => { void queryClient.invalidateQueries(); }); };
-    window.addEventListener('online', onOnline);
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined);
-    return () => window.removeEventListener('online', onOnline);
-  }, []);
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
 }
 

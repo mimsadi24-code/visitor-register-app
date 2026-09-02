@@ -155,10 +155,13 @@
 }
 .brand-mark {
   width: 38px; height: 38px; border-radius: 12px;
-  display: grid; place-items: center;
+  display: grid; place-items: center; overflow: hidden;
   background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
   box-shadow: 0 8px 18px hsl(16 58% 57% / .18);
+  flex: 0 0 auto;
 }
+.brand-mark img { width: 25px; height: 25px; display: block; }
+.brand-name-wide { font-family: var(--app-font-sans); font-size: 12px; font-weight: 800; letter-spacing: .08em; line-height: 1.2; }
 .brand-name { font-family: var(--app-font-serif); font-size: 21px; letter-spacing: -.03em; }
 .brand-caption { color: hsl(var(--sidebar-foreground) / .56); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .rail-link {
@@ -351,4 +354,27 @@
   .delete-dialog { padding: 24px 20px 20px; }
   .delete-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .detail-cancel, .delete-confirm { width: 100%; }
+}
+
+/* Mobile stability: keep the register usable on small Android screens. */
+@media (max-width: 720px) {
+  .side-rail { display: none; }
+  .mobile-nav { display: flex; }
+  .topbar { height: 62px; padding: 0 14px; }
+  .mobile-brand { display: flex; min-width: 0; }
+  .mobile-brand .brand-name-wide { font-size: 11px; white-space: nowrap; }
+  .topbar > :last-child { display: none !important; }
+  .content-wrap { padding: 22px 14px 90px; }
+  .welcome-row { align-items: flex-start; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .date-stamp { text-align: left; }
+  .dashboard-grid { grid-template-columns: 1fr; gap: 14px; }
+  .summary-band { grid-template-columns: 1fr; }
+  .metric, .metric-main, .metric:last-child { border-radius: 0; min-height: auto; }
+  .metric + .metric { border-left: 0; border-top: 1px solid hsl(var(--border)); }
+  .summary-band .metric:first-child { border-radius: 16px 16px 0 0; }
+  .summary-band .metric:last-child { border-radius: 0 0 16px 16px; }
+  .page-title { font-size: 36px; }
+  .surface-header { padding: 18px 16px 15px; }
+  .form-body { padding: 17px 16px 18px; }
+  .detail-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: auto; }
 }

@@ -13,14 +13,15 @@ import {
 const router: IRouter = Router();
 
 router.get("/visitors", async (req, res): Promise<void> => {
-  const parsedQuery = ListVisitorsQueryParams.safeParse(req.query);
+  try {
+    const parsedQuery = ListVisitorsQueryParams.safeParse(req.query);
   if (!parsedQuery.success) {
     req.log.warn({ errors: parsedQuery.error.message }, "Invalid visitor search");
     res.status(400).json({ error: parsedQuery.error.message });
     return;
   }
 
-  const search = parsedQuery.data.search.trim().slice(0, 100);
+  const search = parsedQuery.data.search.trim();
   const visitors = search
     ? await db
         .select()
@@ -40,21 +41,15 @@ router.get("/visitors", async (req, res): Promise<void> => {
         .orderBy(desc(visitorsTable.checkedInAt));
 
   res.json(ListVisitorsResponse.parse(visitors));
+  } catch (error) {
+    req.log.error({ err: error }, "Failed to load visitors");
+    res.status(503).json({ error: "Visitor register is temporarily unavailable." });
+  }
 });
 
 router.post("/visitors", async (req, res): Promise<void> => {
-  // Normalize user-entered whitespace before validation/storage.
-  const normalizedBody =
-    req.body && typeof req.body === "object"
-      ? Object.fromEntries(
-          Object.entries(req.body).map(([key, value]) => [
-            key,
-            typeof value === "string" ? value.trim() : value,
-          ]),
-        )
-      : req.body;
-
-  const parsedBody = CreateVisitorBody.safeParse(normalizedBody);
+  try {
+    const parsedBody = CreateVisitorBody.safeParse(req.body);
   if (!parsedBody.success) {
     req.log.warn({ errors: parsedBody.error.message }, "Invalid visitor details");
     res.status(400).json({ error: parsedBody.error.message });
@@ -67,10 +62,15 @@ router.post("/visitors", async (req, res): Promise<void> => {
     .returning();
 
   res.status(201).json(CreateVisitorResponse.parse(visitor));
+  } catch (error) {
+    req.log.error({ err: error }, "Failed to create visitor");
+    res.status(503).json({ error: "Visitor register is temporarily unavailable." });
+  }
 });
 
 router.delete("/visitors/:id", async (req, res): Promise<void> => {
-  const parsedParams = DeleteVisitorParams.safeParse(req.params);
+  try {
+    const parsedParams = DeleteVisitorParams.safeParse(req.params);
   if (!parsedParams.success) {
     req.log.warn({ errors: parsedParams.error.message }, "Invalid visitor id");
     res.status(400).json({ error: parsedParams.error.message });
@@ -88,10 +88,15 @@ router.delete("/visitors/:id", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
+  } catch (error) {
+    req.log.error({ err: error }, "Failed to delete visitor");
+    res.status(503).json({ error: "Visitor register is temporarily unavailable." });
+  }
 });
 
-router.get("/visitors/summary", async (_req, res): Promise<void> => {
-  const [summary] = await db
+router.get("/visitors/summary", async (req, res): Promise<void> => {
+  try {
+    const [summary] = await db
     .select({
       total: sql<number>`count(*)`,
       today: sql<number>`count(*) filter (where ${visitorsTable.checkedInAt} >= current_date)`,
@@ -106,6 +111,10 @@ router.get("/visitors/summary", async (_req, res): Promise<void> => {
       latestCheckIn: summary?.latestCheckIn ?? null,
     }),
   );
+  } catch (error) {
+    req.log.error({ err: error }, "Failed to load visitor summary");
+    res.status(503).json({ error: "Visitor summary is temporarily unavailable." });
+  }
 });
 
 export default router;

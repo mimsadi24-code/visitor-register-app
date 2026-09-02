@@ -24,7 +24,7 @@ export const HealthCheckResponse = zod.object({
 export const listVisitorsQuerySearchDefault = ``;
 
 export const ListVisitorsQueryParams = zod.object({
-  "search": zod.coerce.string().max(100).default(listVisitorsQuerySearchDefault)
+  "search": zod.coerce.string().default(listVisitorsQuerySearchDefault)
 })
 
 export const ListVisitorsResponseItem = zod.object({
@@ -49,10 +49,10 @@ export const ListVisitorsResponse = zod.array(ListVisitorsResponseItem)
 
 
 export const CreateVisitorBody = zod.object({
-  "name": zod.string().min(1).max(120),
-  "phone": zod.string().min(1).max(40),
-  "personToMeet": zod.string().min(1).max(120),
-  "purpose": zod.string().min(1).max(500)
+  "name": zod.string().min(1),
+  "phone": zod.string().min(1),
+  "personToMeet": zod.string().min(1),
+  "purpose": zod.string().min(1)
 })
 
 export const CreateVisitorResponse = zod.object({
