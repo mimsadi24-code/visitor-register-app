@@ -1,60 +1,59 @@
-name: Unpack Visitor Register
+name: Build Android APK
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  unpack:
+  build-apk:
     runs-on: ubuntu-latest
+
+    env:
+      PORT: 5000
+      BASE_PATH: ./
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Extract project
-        run: |
-          set -e
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
 
-          ZIP_FILE="$(find . -maxdepth 1 -type f -name 'visitor-register-fixed*.zip' | head -n 1)"
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "No visitor-register-fixed*.zip found"
-            exit 1
-          fi
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
 
-          echo "Using ZIP: $ZIP_FILE"
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
 
-          rm -rf /tmp/project
-          mkdir -p /tmp/project
+      - name: Build web app
+        run: pnpm --dir artifacts/visitor-register build
 
-          unzip -q "$ZIP_FILE" -d /tmp/project
+      - name: Add Android platform
+        working-directory: artifacts/visitor-register
+        run: npx cap add android
 
-          if [ -d "/tmp/project/visitor-register-main" ]; then
-            PROJECT_DIR="/tmp/project/visitor-register-main"
-          else
-            PROJECT_DIR="/tmp/project"
-          fi
+      - name: Sync Capacitor
+        working-directory: artifacts/visitor-register
+        run: npx cap sync android
 
-          echo "Project directory: $PROJECT_DIR"
+      - name: Build APK
+        working-directory: artifacts/visitor-register/android
+        run: ./gradlew assembleDebug
 
-          # Remove the old nested project folder
-          rm -rf visitor-register-main
-
-          # Copy the actual project files to repository root
-          rsync -a \
-            --exclude='.github/' \
-            "$PROJECT_DIR"/ ./
-
-      - name: Commit project
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@github.com"
-
-          git add -A
-
-          git commit -m "Fix Visitor Register project structure" || exit 0
-
-          git push
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: visitor-register-apk
+          path: artifacts/visitor-register/android/app/build/outputs/apk/debug/app-debug.apk
