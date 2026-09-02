@@ -1,0 +1,55 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build web app
+        run: pnpm --dir artifacts/visitor-register build
+
+      - name: Add Android platform
+        working-directory: artifacts/visitor-register
+        run: npx cap add android
+
+      - name: Sync Capacitor
+        working-directory: artifacts/visitor-register
+        run: npx cap sync android
+
+      - name: Build APK
+        working-directory: artifacts/visitor-register/android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: visitor-register-apk
+          path: artifacts/visitor-register/android/app/build/outputs/apk/debug/app-debug.apk
