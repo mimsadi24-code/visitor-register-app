@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: visitors
+    description: Visitor register operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /visitors:
+    get:
+      operationId: listVisitors
+      tags: [visitors]
+      summary: List visitors
+      description: Returns visitors ordered from newest to oldest, optionally filtered by a search term.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ""
+      responses:
+        "200":
+          description: Visitor list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Visitor"
+    post:
+      operationId: createVisitor
+      tags: [visitors]
+      summary: Register a visitor
+      description: Adds a visitor to the register.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisitorInput"
+      responses:
+        "201":
+          description: Visitor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visitor"
+        "400":
+          description: Invalid visitor details
+  /visitors/summary:
+    get:
+      operationId: getVisitorSummary
+      tags: [visitors]
+      summary: Get visitor summary
+      description: Returns lightweight register totals for the dashboard.
+      responses:
+        "200":
+          description: Visitor summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitorSummary"
+  /visitors/{id}:
+    delete:
+      operationId: deleteVisitor
+      tags: [visitors]
+      summary: Delete a visitor record
+      description: Removes an unwanted visitor record from the register.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Visitor deleted
+        "400":
+          description: Invalid visitor id
+        "404":
+          description: Visitor not found
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    Visitor:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        phone:
+          type: string
+        personToMeet:
+          type: string
+        purpose:
+          type: string
+        checkedInAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - phone
+        - personToMeet
+        - purpose
+        - checkedInAt
+    VisitorInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 1
+        personToMeet:
+          type: string
+          minLength: 1
+        purpose:
+          type: string
+          minLength: 1
+      required:
+        - name
+        - phone
+        - personToMeet
+        - purpose
+    VisitorSummary:
+      type: object
+      properties:
+        total:
+          type: number
+        today:
+          type: number
+        latestCheckIn:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - total
+        - today
+        - latestCheckIn
+

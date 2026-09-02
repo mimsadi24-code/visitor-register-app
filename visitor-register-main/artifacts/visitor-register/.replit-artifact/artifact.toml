@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Visitor Register"
+description = "A mobile-friendly visitor register for capturing guest details and quickly searching the day's visitor history."
+version = "1.0.0"
+id = "artifacts/visitor-register"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18562
+
+[services.development]
+run = "pnpm --filter @workspace/visitor-register run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/visitor-register", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/visitor-register/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18562"
+BASE_PATH = "/"
