@@ -17,6 +17,7 @@ jobs:
       - name: Extract project
         run: |
           set -e
+
           rm -rf /tmp/project
           mkdir -p /tmp/project
 
@@ -28,7 +29,8 @@ jobs:
             rsync -a --exclude='.github/' /tmp/project/ ./
           fi
 
-         rm -f visitor-register-fixed-v2.zip
+          rm -f visitor-register-fixed-v2.zip
+
       - name: Commit project
         run: |
           git config user.name "github-actions[bot]"
@@ -36,4 +38,5 @@ jobs:
 
           git add -A
           git commit -m "Add Visitor Register project" || exit 0
+          git push
           git push
