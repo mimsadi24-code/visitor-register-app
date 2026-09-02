@@ -20,7 +20,7 @@ jobs:
           rm -rf /tmp/project
           mkdir -p /tmp/project
 
-          unzip -q visitor-register-apk-package.zip -d /tmp/project
+          unzip -q visitor-register-fixed-v2.zip -d /tmp/project
 
           if [ -d /tmp/project/apk_pkg ]; then
             rsync -a --exclude='.github/' /tmp/project/apk_pkg/ ./
@@ -28,8 +28,7 @@ jobs:
             rsync -a --exclude='.github/' /tmp/project/ ./
           fi
 
-          rm -f visitor-register-apk-package.zip
-
+         rm -f visitor-register-fixed-v2.zip
       - name: Commit project
         run: |
           git config user.name "github-actions[bot]"
